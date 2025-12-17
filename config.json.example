@@ -1,0 +1,6 @@
+{
+    "key_path": "/opt/honeypot/server.key",
+    "ssh_port": 22,
+    "gelf_host": "localhost",
+    "gelf_port": 12201
+}

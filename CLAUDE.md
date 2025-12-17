@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a simple SSH honeypot that logs connection attempts to a Graylog server via GELF UDP. It captures source IPs of SSH connection attempts but always rejects authentication.
+This is a simple SSH honeypot that logs connection attempts and credential attempts to a Graylog server via GELF UDP. It always rejects authentication.
 
 ## Dependencies
 
@@ -12,31 +12,21 @@ This is a simple SSH honeypot that logs connection attempts to a Graylog server 
 - paramiko (`apt install python3-paramiko`)
 - graypy (`apt install python3-graypy`)
 
-## Running the Honeypot
+## Configuration
 
-```bash
-# Generate RSA key first (required)
-ssh-keygen -t rsa -f server.key
+The honeypot reads from `/opt/honeypot/config.json` by default. See `config.json.example` for format.
 
-# Run directly (requires root for port 22)
-python3 honeypot.py
+Command-line arguments override config file values:
 
-# With custom options
-python3 honeypot.py -k ./server.key -p 2222 --gelf-host 192.168.1.10 --gelf-port 12201
-```
-
-## Command-Line Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-k, --key` | `/opt/honeypot/server.key` | Path to RSA host key |
-| `-p, --port` | `22` | SSH port to listen on |
-| `--gelf-host` | `localhost` | Graylog GELF UDP host |
-| `--gelf-port` | `12201` | Graylog GELF UDP port |
+| Option | Description |
+|--------|-------------|
+| `-c, --config` | Path to JSON config file |
+| `-k, --key` | Path to RSA host key |
+| `-p, --port` | SSH port to listen on |
+| `--gelf-host` | Graylog GELF UDP host |
+| `--gelf-port` | Graylog GELF UDP port |
 
 ## Systemd Deployment
-
-The `honeypotpy.service` file provides a systemd unit for running as a dedicated non-root user.
 
 ```bash
 # Create dedicated user
@@ -45,6 +35,8 @@ useradd -r -s /usr/sbin/nologin honeypot
 # Setup directory
 mkdir -p /opt/honeypot
 cp honeypot.py /opt/honeypot/
+cp config.json.example /opt/honeypot/config.json
+# Edit config.json with your settings
 ssh-keygen -t rsa -f /opt/honeypot/server.key -N ''
 chown -R honeypot:honeypot /opt/honeypot
 chmod 600 /opt/honeypot/server.key
@@ -59,8 +51,9 @@ systemctl enable --now honeypotpy
 
 Single-file honeypot using:
 - `paramiko.ServerInterface` subclass (`SSHServerHandler`) that always returns `AUTH_FAILED`
-- Main socket server accepting connections and spawning `threading.Thread` for each connection
-- Graceful shutdown via SIGINT/SIGTERM signal handling
+- JSON config file with command-line overrides
+- `threading.Thread` for each connection
+- Graceful shutdown via SIGINT/SIGTERM
 
 ## Logged Data (GELF)
 

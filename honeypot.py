@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import logging
+import os
 import signal
 import socket
 import sys
@@ -10,13 +12,36 @@ import paramiko  # apt install python3-paramiko
 import graypy  # apt install python3-graypy
 
 # Default configuration
-DEFAULT_KEY_PATH = '/opt/honeypot/server.key'
-DEFAULT_SSH_PORT = 22
-DEFAULT_GELF_HOST = 'localhost'
-DEFAULT_GELF_PORT = 12201
+DEFAULTS = {
+    'key_path': '/opt/honeypot/server.key',
+    'ssh_port': 22,
+    'gelf_host': 'localhost',
+    'gelf_port': 12201,
+}
 
 # Global flag for graceful shutdown
 shutdown_event = threading.Event()
+
+
+def load_config(config_path):
+    """Load configuration from JSON file."""
+    config = DEFAULTS.copy()
+    if config_path and os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                file_config = json.load(f)
+                config.update(file_config)
+            print(f'Loaded configuration from {config_path}')
+        except json.JSONDecodeError as e:
+            print(f'ERROR: Invalid JSON in config file: {e}')
+            sys.exit(1)
+        except IOError as e:
+            print(f'ERROR: Could not read config file: {e}')
+            sys.exit(1)
+    elif config_path:
+        print(f'ERROR: Config file not found: {config_path}')
+        sys.exit(1)
+    return config
 
 
 def setup_logger(gelf_host, gelf_port):
@@ -100,28 +125,42 @@ def signal_handler(signum, frame):
 def main():
     parser = argparse.ArgumentParser(description='SSH Honeypot Server')
     parser.add_argument(
+        '-c', '--config',
+        default='/opt/honeypot/config.json',
+        help='Path to JSON config file (default: /opt/honeypot/config.json)'
+    )
+    parser.add_argument(
         '-k', '--key',
-        default=DEFAULT_KEY_PATH,
-        help=f'Path to RSA host key (default: {DEFAULT_KEY_PATH})'
+        help='Path to RSA host key (overrides config file)'
     )
     parser.add_argument(
         '-p', '--port',
         type=int,
-        default=DEFAULT_SSH_PORT,
-        help=f'SSH port to listen on (default: {DEFAULT_SSH_PORT})'
+        help='SSH port to listen on (overrides config file)'
     )
     parser.add_argument(
         '--gelf-host',
-        default=DEFAULT_GELF_HOST,
-        help=f'Graylog GELF UDP host (default: {DEFAULT_GELF_HOST})'
+        help='Graylog GELF UDP host (overrides config file)'
     )
     parser.add_argument(
         '--gelf-port',
         type=int,
-        default=DEFAULT_GELF_PORT,
-        help=f'Graylog GELF UDP port (default: {DEFAULT_GELF_PORT})'
+        help='Graylog GELF UDP port (overrides config file)'
     )
     args = parser.parse_args()
+
+    # Load config file
+    config = load_config(args.config)
+
+    # Command-line arguments override config file
+    if args.key:
+        config['key_path'] = args.key
+    if args.port:
+        config['ssh_port'] = args.port
+    if args.gelf_host:
+        config['gelf_host'] = args.gelf_host
+    if args.gelf_port:
+        config['gelf_port'] = args.gelf_port
 
     # Setup signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
@@ -129,9 +168,9 @@ def main():
 
     # Load host key
     try:
-        host_key = paramiko.RSAKey(filename=args.key)
+        host_key = paramiko.RSAKey(filename=config['key_path'])
     except FileNotFoundError:
-        print(f"ERROR: Host key not found at {args.key}")
+        print(f"ERROR: Host key not found at {config['key_path']}")
         print("Generate one with: ssh-keygen -t rsa -f server.key")
         sys.exit(1)
     except paramiko.SSHException as e:
@@ -139,16 +178,17 @@ def main():
         sys.exit(1)
 
     # Setup logger
-    logger = setup_logger(args.gelf_host, args.gelf_port)
+    logger = setup_logger(config['gelf_host'], config['gelf_port'])
+    print(f"Logging to {config['gelf_host']}:{config['gelf_port']}")
 
     # Create server socket
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.settimeout(1.0)  # Allow periodic check of shutdown_event
-        server_socket.bind(('', args.port))
+        server_socket.bind(('', config['ssh_port']))
         server_socket.listen(100)
-        print(f'SSH Honeypot Server started on port {args.port}')
+        print(f"SSH Honeypot Server started on port {config['ssh_port']}")
     except OSError as e:
         print(f"ERROR: Failed to create socket: {e}")
         sys.exit(1)
