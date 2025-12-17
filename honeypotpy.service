@@ -1,9 +1,36 @@
 [Unit]
-Description=Python SSH Honeypot script
-After=multi-user.target
+Description=Python SSH Honeypot
+After=network.target
+Wants=network.target
+
 [Service]
 Type=simple
+ExecStart=/usr/bin/python3 /opt/honeypot/honeypot.py
+WorkingDirectory=/opt/honeypot
 Restart=always
-ExecStart=/usr/bin/python3 /root/honeypot/honeypot.py
+RestartSec=5
+
+# Run as dedicated user with minimal privileges
+User=honeypot
+Group=honeypot
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ssh-honeypot
+
 [Install]
 WantedBy=multi-user.target
