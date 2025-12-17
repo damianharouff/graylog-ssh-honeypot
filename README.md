@@ -1,4 +1,4 @@
-# Python SSH Honeypot
+# Graylog SSH Honeypot
 
 A lightweight SSH honeypot that logs connection attempts and credentials to Graylog via GELF UDP.
 
