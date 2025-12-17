@@ -140,4 +140,6 @@ Each authentication attempt sends a GELF message with:
 
 A small bug bounty is offered if you are able to authenticate or otherwise get to a shell or upload files into the user's home directory. The bug must be specifically related to this script; vulnerabilities in Python or Paramiko will not be accepted.
 
-Keeping in mind this is toy software automatically built by a machine, please keep your expectations for bounty payout reasonable. Contact information for the author is easy to find; consider it part of the hunt.
+Reports must include the specific commit ID and instructions to replicate the vulnerability for that commit. Only vulnerabilities in the most recent commit will be accepted.
+
+Keeping in mind this is toy software automatically built by a machine, please keep your expectations for bounty payout reasonable. Contact information for the author is easy to find; consider it part of the hunt, especially if you fashion yourself as a security researcher.
