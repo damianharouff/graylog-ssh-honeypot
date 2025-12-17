@@ -22,6 +22,8 @@ apt install python3-paramiko python3-graypy
 
 ## Quick Start
 
+For production use, see [Production Deployment](#production-deployment) below. Never run as root.
+
 ```bash
 # Generate RSA host key
 ssh-keygen -t rsa -f server.key -N ''
@@ -30,8 +32,8 @@ ssh-keygen -t rsa -f server.key -N ''
 cp config.json.example config.json
 # Edit config.json with your Graylog server details
 
-# Run (requires root for port 22, or use a high port)
-python3 honeypot.py -c config.json
+# Test on a high port (for development only)
+python3 honeypot.py -c config.json -p 2222
 ```
 
 ## Configuration
@@ -59,37 +61,79 @@ Command-line options override config file values:
 
 ## Production Deployment
 
-### Setup
+**Never run as root.** Use the systemd service which runs as a dedicated user with minimal privileges.
+
+### 1. Create Honeypot User
+
+Create a system user with no login shell:
 
 ```bash
-# Create dedicated user
-useradd -r -s /usr/sbin/nologin honeypot
-
-# Setup directory
-mkdir -p /opt/honeypot
-cp honeypot.py /opt/honeypot/
-cp config.json.example /opt/honeypot/config.json
-ssh-keygen -t rsa -f /opt/honeypot/server.key -N ''
-chown -R honeypot:honeypot /opt/honeypot
-chmod 600 /opt/honeypot/server.key
-
-# Edit config with your Graylog server
-nano /opt/honeypot/config.json
-
-# Install systemd service
-cp honeypotpy.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now honeypotpy
+sudo useradd -r -s /usr/sbin/nologin honeypot
 ```
 
-### Security
+### 2. Install Files
 
-The systemd unit runs with:
-- Dedicated non-root user (`honeypot`)
-- Only `CAP_NET_BIND_SERVICE` capability (for port 22)
-- Read-only filesystem access
-- Private `/tmp`
-- Kernel hardening options
+```bash
+sudo mkdir -p /opt/honeypot
+sudo cp honeypot.py /opt/honeypot/
+sudo cp config.json.example /opt/honeypot/config.json
+```
+
+### 3. Generate SSH Host Key
+
+```bash
+sudo ssh-keygen -t rsa -f /opt/honeypot/server.key -N ''
+```
+
+### 4. Configure
+
+Edit `/opt/honeypot/config.json` with your Graylog server:
+
+```bash
+sudo nano /opt/honeypot/config.json
+```
+
+```json
+{
+    "key_path": "/opt/honeypot/server.key",
+    "ssh_port": 22,
+    "gelf_host": "your-graylog-server.example.com",
+    "gelf_port": 12201
+}
+```
+
+### 5. Set Permissions
+
+```bash
+sudo chown -R honeypot:honeypot /opt/honeypot
+sudo chmod 600 /opt/honeypot/server.key
+sudo chmod 600 /opt/honeypot/config.json
+```
+
+### 6. Install Systemd Service
+
+```bash
+sudo cp honeypotpy.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable honeypotpy
+sudo systemctl start honeypotpy
+```
+
+### 7. Verify
+
+```bash
+sudo systemctl status honeypotpy
+sudo journalctl -u honeypotpy -f
+```
+
+### Security Notes
+
+The systemd unit is hardened with:
+- `CAP_NET_BIND_SERVICE` capability to bind port 22 without root
+- `ProtectSystem=strict` - read-only filesystem
+- `PrivateTmp=yes` - isolated /tmp namespace
+- `NoNewPrivileges=yes` - prevents privilege escalation
+- `ProtectKernelTunables=yes` - blocks kernel parameter modification
 
 ## Logged Data
 
@@ -107,7 +151,3 @@ Each authentication attempt sends a GELF message with:
 1. Create a GELF UDP input in Graylog (System → Inputs)
 2. Set the port to 12201 (or your chosen port)
 3. Configure firewall to allow UDP traffic on the GELF port
-
-## License
-
-MIT
