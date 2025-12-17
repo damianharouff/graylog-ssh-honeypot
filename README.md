@@ -20,22 +20,6 @@ A lightweight SSH honeypot that logs connection attempts and credentials to Gray
 apt install python3-paramiko python3-graypy
 ```
 
-## Quick Start
-
-For production use, see [Production Deployment](#production-deployment) below. Never run as root.
-
-```bash
-# Generate RSA host key
-ssh-keygen -t rsa -f server.key -N ''
-
-# Create config file
-cp config.json.example config.json
-# Edit config.json with your Graylog server details
-
-# Test on a high port (for development only)
-python3 honeypot.py -c config.json -p 2222
-```
-
 ## Configuration
 
 Create a `config.json` file:
@@ -59,7 +43,7 @@ Command-line options override config file values:
 --gelf-port     Graylog GELF UDP port
 ```
 
-## Production Deployment
+## Deployment
 
 **Never run as root.** Use the systemd service which runs as a dedicated user with minimal privileges.
 
