@@ -135,3 +135,9 @@ Each authentication attempt sends a GELF message with:
 1. Create a GELF UDP input in Graylog (System → Inputs)
 2. Set the port to 12201 (or your chosen port)
 3. Configure firewall to allow UDP traffic on the GELF port
+
+## Bug Bounty
+
+A small bug bounty is offered if you are able to authenticate or otherwise get to a shell or upload files into the user's home directory. The bug must be specifically related to this script; vulnerabilities in Python or Paramiko will not be accepted.
+
+Keeping in mind this is toy software automatically built by a machine, please keep your expectations for bounty payout reasonable. Contact information for the author is easy to find; consider it part of the hunt.
